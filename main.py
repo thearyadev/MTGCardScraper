@@ -7,6 +7,7 @@ RANDOM_CELL_LABEL: str = "A1"
 LISTING_ID_RANGE: str = "A3:A1000"
 STATUS_CELL_LABEL: str = "J1"
 
+
 class CardListing(typing.NamedTuple):
     listing_id: int
     name: str
@@ -34,7 +35,7 @@ def get_tcgplayer_data(listing_id) -> CardListing:
 
 
 def connect() -> gspread.Worksheet:
-    gc = gspread.service_account(filename="mtgcardscraper-1a0503009019.json")
+    gc = gspread.service_account(filename="creds.json")
     spreadsheet: gspread.Spreadsheet = gc.open("MTG Card Collection")
     return spreadsheet.get_worksheet(0)
 

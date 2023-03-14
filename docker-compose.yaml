@@ -1,0 +1,5 @@
+version: "3.9"
+services:
+  mtg_scraper:
+    build: .
+    restart: unless-stopped
