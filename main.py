@@ -19,10 +19,12 @@ class CardListing(typing.NamedTuple):
 
 
 def get_tcgplayer_data(listing_id) -> CardListing:
+    """gets data from tcgplayer"""
     url: str = f"https://mpapi.tcgplayer.com/v2/product/{listing_id}/details"
-    data: dict = requests.get(url).json()
-    customAttrs: dict | None = data.get("customAttributes")
+    data: dict = requests.get(url).json()  # gets data from url
+    customAttrs: dict | None = data.get("customAttributes")  # check if key exists
 
+    # creates CardListing object
     return CardListing(
         listing_id=listing_id,
         name=data.get("productName"),
@@ -35,15 +37,18 @@ def get_tcgplayer_data(listing_id) -> CardListing:
 
 
 def connect() -> gspread.Worksheet:
+    """Connects to google sheets and returns the first worksheet"""
     gc = gspread.service_account(filename="creds.json")
     spreadsheet: gspread.Spreadsheet = gc.open("MTG Card Collection")
     return spreadsheet.get_worksheet(0)
 
 
 def write_row(sheet: gspread.Worksheet, cellRange: str, cardData: CardListing) -> None:
-    cells: list[gspread.Cell] = sheet.range(cellRange)
-    cardData = tuple(cardData)
+    """Writes the card data to a row"""
+    cells: list[gspread.Cell] = sheet.range(cellRange)  # get the range as cells
+    cardData = tuple(cardData)  # convert namedtuple to tuple
     for i, cell in enumerate(cells):
+        # some filtering and assignment
         cell.value = cardData[i] if not isinstance(cardData[i], list) else " ".join(cardData[i])
 
     sheet.update_cells(cells)
@@ -51,11 +56,13 @@ def write_row(sheet: gspread.Worksheet, cellRange: str, cardData: CardListing) -
 
 
 def write_error(sheet: gspread.Worksheet, cell: gspread.Cell, message: str) -> None:
+    """Writes an error message on the row that failed."""
     cell.value = f"ERROR: {message}"
     sheet.update_cells([cell, ])
 
 
 def write_status(sheet: gspread.Worksheet, status: str):
+    """Write the current status in a predefined cell"""
     sheet.update_acell(STATUS_CELL_LABEL, status)
 
 
@@ -64,7 +71,7 @@ def main():
 
     randomCellOldValue: int = sheet.acell(RANDOM_CELL_LABEL).value
 
-    while True:
+    while True:  # loop checks if the user has requested a reload, this is done by a cell changing value.
         try:
             newValueCheck: int = sheet.acell(RANDOM_CELL_LABEL).value
             if newValueCheck != randomCellOldValue:
@@ -80,13 +87,13 @@ def main():
 
                     except Exception as e:
                         write_error(sheet, sheet.cell(row=listing.row, col=2), message=str(e))
-                    time.sleep(2)
+                    time.sleep(2)  # wait 2 seconds after each write
                 write_status(sheet, status="Waiting...")
             else:
                 write_status(sheet, status="Waiting...")
         except Exception as e:
             write_status(sheet, status=f"ERROR: {e}")
-        time.sleep(10)
+        time.sleep(10)  # wait 10 seconds before checking if a refresh was requested
 
 
 if __name__ == '__main__':
