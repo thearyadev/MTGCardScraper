@@ -91,13 +91,16 @@ def main():
                 for listing in (
                     cell for cell in sheet.range(LISTING_ID_RANGE) if cell.value
                 ):
-                    cdata = get_tcgplayer_data(listing.value)
+                    try:
+                        cdata = get_tcgplayer_data(listing.value)
 
-                    write_row(
-                        sheet=sheet,
-                        cellRange=f"A{listing.row}:G{listing.row}",
-                        cardData=cdata,
-                    )
+                        write_row(
+                            sheet=sheet,
+                            cellRange=f"A{listing.row}:G{listing.row}",
+                            cardData=cdata,
+                        )
+                    except Exception as e:
+                        write_error(sheet, status=f"ERROR: {e}")
 
                     time.sleep(2)  # wait 2 seconds after each write
                 write_status(sheet, status="Waiting...")
