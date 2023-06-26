@@ -16,25 +16,45 @@ class CardListing(typing.NamedTuple):
     cmc: int
     type: str
     price: float
+    foilPrice: float
     url: str
-
+    
+    
 
 def get_tcgplayer_data(listing_id) -> CardListing:
     """gets data from tcgplayer"""
-    url: str = f"https://mp-search-api.tcgplayer.com/v1/product/{listing_id}/details?mpfev=1680"
-    data: dict = requests.get(
-        url,
+    main_data_url: str = f"https://mp-search-api.tcgplayer.com/v1/product/{listing_id}/details?mpfev=1680"
+    pricing_data_url: str = f"https://mpapi.tcgplayer.com/v2/product/{listing_id}/pricepoints?mpfev=1713"
+    main_data: dict = requests.get(
+        main_data_url,
     ).json() # gets data from url
-    customAttrs: dict | None = data.get("customAttributes")  # check if key exists
+    pricing_data: dict = requests.get(pricing_data_url).json()
+    standardMarketPrice: float = -1
+    foilMarketPrice: float = -1
+
+    for priceEntry in pricing_data:
+        if priceEntry.get("printingType") == "Normal":
+            standardMarketPrice = priceEntry.get("marketPrice") if priceEntry.get("marketPrice") else -1
+        elif priceEntry.get("printingType") == "Foil":
+            foilMarketPrice = priceEntry.get("marketPrice") if priceEntry.get("marketPrice") else -1
+    
+    if foilMarketPrice == -1:
+        foilMarketPrice = standardMarketPrice
+
+    if standardMarketPrice == -1:
+        standardMarketPrice = main_data.get("marketPrice") if main_data.get("marketPrice") else -1
+
+    customAttrs: dict | None = main_data.get("customAttributes")  # check if key exists
 
     # creates CardListing object
     return CardListing(
         listing_id=listing_id,
-        name=data.get("productName"),
+        name=main_data.get("productName"),
         color=customAttrs.get("color") if customAttrs else None,
         cmc=customAttrs.get("convertedCost") if customAttrs else None,
         type=customAttrs.get("fullType") if customAttrs else None,
-        price=data.get("marketPrice"),
+        price=standardMarketPrice,
+        foilPrice=foilMarketPrice,
         url=f"https://www.tcgplayer.com/product/{listing_id}",
     )
 
@@ -88,19 +108,19 @@ def main():
             if newValueCheck != randomCellOldValue:
                 randomCellOldValue = newValueCheck
                 write_status(sheet, status="Refreshing...")
-                for listing in (
-                    cell for cell in sheet.range(LISTING_ID_RANGE) if cell.value
-                ):
+                entries = [cell for cell in sheet.range(LISTING_ID_RANGE) if cell.value]
+                for i, listing in enumerate(entries):
                     try:
+                        write_status(sheet, status=f"Writing row {i+1} of {len(entries)}")
                         cdata = get_tcgplayer_data(listing.value)
 
                         write_row(
                             sheet=sheet,
-                            cellRange=f"A{listing.row}:G{listing.row}",
+                            cellRange=f"A{listing.row}:H{listing.row}",
                             cardData=cdata,
                         )
                     except Exception as e:
-                        write_error(sheet, status=f"ERROR: {e}")
+                        write_error(sheet, message=f"ERROR: {e}")
 
                     time.sleep(2)  # wait 2 seconds after each write
                 write_status(sheet, status="Waiting...")
